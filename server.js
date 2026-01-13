@@ -452,7 +452,9 @@ app.get("/api/export-pdf/:id", async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send("PDF failed"); }
 });
 
-// Refinement: Start the listener if running locally, and export for Vercel
 if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log(`🚀 Server listening on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`🚀 Server listening on http://localhost:${PORT}`));
 }
+
+// CRITICAL: Vercel needs this export to run your serverless function
+module.exports = app;
