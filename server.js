@@ -54,7 +54,7 @@ app.post("/api/admin/login", (req, res) => {
 app.get("/api/admin/submissions", async (req, res) => {
   try {
     const query = `SELECT id, meta_ro_name, meta_piu_name, meta_project_name, submission_timestamp 
-                   FROM project_submissions ORDER BY submission_timestamp DESC`;
+                    FROM project_submissions ORDER BY submission_timestamp DESC`;
     const result = await db.query(query);
     res.json(result.rows);
   } catch (err) {
@@ -362,94 +362,99 @@ app.get("/api/export/:id", async (req, res) => {
 /* ---------------- 5. PDF EXPORT (EXACT MIRROR OF REQUEST) ---------------- */
 
 app.get("/api/export-pdf/:id", async (req, res) => {
-  try {
-    const { rows } = await db.query("SELECT * FROM project_submissions WHERE id = $1", [req.params.id]);
-    if (!rows.length) return res.status(404).send("Not found");
-    const d = rows[0];
-    const doc = new jsPDF('p', 'mm', 'a4');
+  try {
+    const { rows } = await db.query("SELECT * FROM project_submissions WHERE id = $1", [req.params.id]);
+    if (!rows.length) return res.status(404).send("Not found");
+    const d = rows[0];
+    const doc = new jsPDF('p', 'mm', 'a4');
 
-    const addH = (t, y) => {
-      doc.setFontSize(10); doc.setTextColor(37, 99, 235); doc.setFont("helvetica", "bold");
-      doc.text(t.toUpperCase(), 14, y); doc.setDrawColor(226, 232, 240); doc.line(14, y + 1, 196, y + 1); return y + 8;
-    };
+    const addH = (t, y) => {
+      doc.setFontSize(10); doc.setTextColor(37, 99, 235); doc.setFont("helvetica", "bold");
+      doc.text(t.toUpperCase(), 14, y); doc.setDrawColor(226, 232, 240); doc.line(14, y + 1, 196, y + 1); return y + 8;
+    };
 
-    doc.setFontSize(16); doc.setTextColor(15, 23, 42); doc.text("AE/IE PROJECT REPORT", 14, 15);
+    doc.setFontSize(16); doc.setTextColor(15, 23, 42); doc.text("AE/IE PROJECT REPORT", 14, 15);
 
-    // Metadata
-    let curY = addH("Metadata", 25);
-    autoTable(doc, { startY: curY, body: [['Regional Office', d.meta_ro_name], ['RO Code', d.meta_ro_code], ['PIU', d.meta_piu_name], ['Project Name', d.meta_project_name], ['Submission Date and Time', new Date(d.submission_timestamp).toLocaleString()]], theme: 'grid', styles: { fontSize: 8 } });
+    // Metadata
+    let curY = addH("Metadata", 25);
+    autoTable(doc, { startY: curY, body: [['Regional Office', d.meta_ro_name], ['RO Code', d.meta_ro_code], ['PIU', d.meta_piu_name], ['Project Name', d.meta_project_name], ['Submission Date and Time', new Date(d.submission_timestamp).toLocaleString()]], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 00
-    curY = addH("Section 00", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [
-        ["Awarded Cost (excluding GST) in case of EPC project (INR in Cr.)", d.sec00?.epc_cost_cr || "-"],
-        ["Awarded BPC in case of HAM Project (INR in Cr.)", d.sec00?.ham_bpc_cr || "-"],
-        ["Project Length (Kms)", d.sec00?.project_length_km || "-"],
-        ["Greenfield Length of Project (Kms)", d.sec00?.greenfield_length_km || "-"],
-        ["Brownfield Length of Project (Kms)", d.sec00?.brownfield_length_km || "-"],
-        ["Whether project has tunnel...?", d.sec00?.has_complex_structure || "-"]
-    ], theme: 'grid', styles: { fontSize: 8 } });
+    // Section 00
+    curY = addH("Section 00", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [
+        ["Awarded Cost (excluding GST) in case of EPC project (INR in Cr.)", d.sec00?.epc_cost_cr || "-"],
+        ["Awarded BPC in case of HAM Project (INR in Cr.)", d.sec00?.ham_bpc_cr || "-"],
+        ["Project Length (Kms)", d.sec00?.project_length_km || "-"],
+        ["Greenfield Length of Project (Kms)", d.sec00?.greenfield_length_km || "-"],
+        ["Brownfield Length of Project (Kms)", d.sec00?.brownfield_length_km || "-"],
+        ["Whether project has tunnel...?", d.sec00?.has_complex_structure || "-"]
+    ], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 01
-    curY = addH("Section 01", doc.lastAutoTable.finalY + 10);
-    doc.setFontSize(8); doc.setTextColor(0); doc.text(`Project Type: ${d.sec01?.project_type || ""}`, 14, curY);
-    autoTable(doc, { startY: curY + 4, head: [['Designation', 'No. of KPs', 'Deployment Contract', 'End Date Contract', 'Actual Date', 'Remarks']], body: (d.sec01?.deployments || []).map(r => [r.designation, r.qty_val, r.deployment_as_per_contract, r.end_date_as_per_contract_or_eot, r.actual_deployment_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
-    doc.text(`Section 1 Remarks: ${d.sec01?.remarks || ""}`, 14, doc.lastAutoTable.finalY + 5);
+    // Section 01
+    curY = addH("Section 01", doc.lastAutoTable.finalY + 10);
+    doc.setFontSize(8); doc.setTextColor(0); doc.text(`Project Type: ${d.sec01?.project_type || ""}`, 14, curY);
+    autoTable(doc, { startY: curY + 4, head: [['Designation', 'No. of KPs', 'Deployment Contract', 'End Date Contract', 'Actual Date', 'Remarks']], body: (d.sec01?.deployments || []).map(r => [r.designation, r.qty_val, r.deployment_as_per_contract, r.end_date_as_per_contract_or_eot, r.actual_deployment_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
+    doc.text(`Section 1 Remarks: ${d.sec01?.remarks || ""}`, 14, doc.lastAutoTable.finalY + 5);
 
-    // Section 02
-    curY = addH("Section 02", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['Sign date AE/IE', d.sec02?.agreement_sign_date || "-"], ['End date Contract', d.sec02?.agreement_end_date || "-"]], theme: 'grid', styles: { fontSize: 8 } });
-    autoTable(doc, { startY: doc.lastAutoTable.finalY + 4, head: [['Designation', 'No. of Replacements', 'Submission of CV', 'Mobilization Date', 'Demobilization Date', 'Remarks']], body: (d.sec02?.replacements || []).map(r => [r.designation, r.replacement_qty, r.cv_submission_date, r.mobilization_date, r.demobilization_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
+    // Section 02
+    curY = addH("Section 02", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['Sign date AE/IE', d.sec02?.agreement_sign_date || "-"], ['End date Contract', d.sec02?.agreement_end_date || "-"]], theme: 'grid', styles: { fontSize: 8 } });
+    autoTable(doc, { startY: doc.lastAutoTable.finalY + 4, head: [['Designation', 'No. of Replacements', 'Submission of CV', 'Mobilization Date', 'Demobilization Date', 'Remarks']], body: (d.sec02?.replacements || []).map(r => [r.designation, r.replacement_qty, r.cv_submission_date, r.mobilization_date, r.demobilization_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
 
-    // Section 03
-    curY = addH("Section 03", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, head: [['Name of Design / Drawing', 'Date of Submission', 'Date of Return', 'Date of Approval', 'Remarks']], body: (d.sec03?.drawings || []).map(r => [r.name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'grid', styles: { fontSize: 6 } });
+    // Section 03
+    curY = addH("Section 03", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, head: [['Name of Design / Drawing', 'Date of Submission', 'Date of Return', 'Date of Approval', 'Remarks']], body: (d.sec03?.drawings || []).map(r => [r.name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'grid', styles: { fontSize: 6 } });
 
-    // Section 04
-    curY = addH("Section 04", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['Scheduled Project Completion', d.sec04?.scheduled_completion_date || "-"], ['Physical Progress %', d.sec04?.physical_progress_percent || "-"], ['Likely Completion', d.sec04?.likely_completion_date || "-"], ['No. of DRB Awards (Authority)', d.sec04?.drb_awards?.authority || "0"], ['No. of DRB Awards (Concessionaire)', d.sec04?.drb_awards?.concessionaire || "0"], ['No. of Neutral Awards', d.sec04?.drb_awards?.neutral || "0"]], theme: 'grid', styles: { fontSize: 8 } });
+    // Section 04
+    curY = addH("Section 04", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['Scheduled Project Completion', d.sec04?.scheduled_completion_date || "-"], ['Physical Progress %', d.sec04?.physical_progress_percent || "-"], ['Likely Completion', d.sec04?.likely_completion_date || "-"], ['No. of DRB Awards (Authority)', d.sec04?.drb_awards?.authority || "0"], ['No. of DRB Awards (Concessionaire)', d.sec04?.drb_awards?.concessionaire || "0"], ['No. of Neutral Awards', d.sec04?.drb_awards?.neutral || "0"]], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 05 & 06
-    curY = addH("Section 05", doc.lastAutoTable.finalY + 10);
-    doc.setFontSize(8); doc.text(`No of COS: ${d.sec05?.cos_count || "0"}`, 14, curY);
-    autoTable(doc, { startY: curY + 4, head: [['COS for Civil Work', 'Submission', 'Return', 'Approval', 'Remarks']], body: (d.sec05?.cos_items || []).map(r => [r.item_name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
-    
-    curY = addH("Section 06", doc.lastAutoTable.finalY + 10);
-    doc.setFontSize(8); doc.text(`No of EOT: ${d.sec06?.eot_count || "0"}`, 14, curY);
-    autoTable(doc, { startY: curY + 4, head: [['EOT for Civil Work', 'Submission', 'Return', 'Approval', 'Remarks']], body: (d.sec06?.eot_items || []).map(r => [r.item_name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
+    // Section 05 & 06
+    curY = addH("Section 05", doc.lastAutoTable.finalY + 10);
+    doc.setFontSize(8); doc.text(`No of COS: ${d.sec05?.cos_count || "0"}`, 14, curY);
+    autoTable(doc, { startY: curY + 4, head: [['COS for Civil Work', 'Submission', 'Return', 'Approval', 'Remarks']], body: (d.sec05?.cos_items || []).map(r => [r.item_name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
+    
+    curY = addH("Section 06", doc.lastAutoTable.finalY + 10);
+    doc.setFontSize(8); doc.text(`No of EOT: ${d.sec06?.eot_count || "0"}`, 14, curY);
+    autoTable(doc, { startY: curY + 4, head: [['EOT for Civil Work', 'Submission', 'Return', 'Approval', 'Remarks']], body: (d.sec06?.eot_items || []).map(r => [r.item_name, r.submission_date, r.return_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
 
-    // Section 07
-    curY = addH("Section 07", doc.lastAutoTable.finalY + 10);
-    doc.setFontSize(8); doc.text(`A. Avg Processing: ${d.sec07?.avg_processing_time_category || ""}`, 14, curY);
-    autoTable(doc, { startY: curY + 4, head: [['SPC Bill No.', 'Date of Last Submission', 'Date of Approval', 'Remarks']], body: (d.sec07?.bills || []).map(r => [r.bill_number, r.last_submission_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
+    // Section 07
+    curY = addH("Section 07", doc.lastAutoTable.finalY + 10);
+    doc.setFontSize(8); doc.text(`A. Avg Processing: ${d.sec07?.avg_processing_time_category || ""}`, 14, curY);
+    autoTable(doc, { startY: curY + 4, head: [['SPC Bill No.', 'Date of Last Submission', 'Date of Approval', 'Remarks']], body: (d.sec07?.bills || []).map(r => [r.bill_number, r.last_submission_date, r.approval_date, r.remarks]), theme: 'striped', styles: { fontSize: 6 } });
 
-    // Section 08 - SEPARATED
-    curY = addH("Section 08", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['A. PCI (PCC/COD/Completion)', d.sec08?.pci_at_completion || "-"], ['B. PCI (2yr Post Completion)', d.sec08?.pci_two_years_post || "-"]], theme: 'grid', styles: { fontSize: 8 } });
+    // Section 08 - SEPARATED
+    curY = addH("Section 08", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['A. PCI (PCC/COD/Completion)', d.sec08?.pci_at_completion || "-"], ['B. PCI (2yr Post Completion)', d.sec08?.pci_two_years_post || "-"]], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 09 - SEPARATED
-    curY = addH("Section 09", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['A. No. of accidents (3yr)', d.sec09?.accidents_within_3_years || "-"], ['B. No. of blackspots (3yr)', d.sec09?.blackspots_within_3_years || "-"], ['C. Adherence to Safety during construction', d.sec09?.safety_adherence || "-"]], theme: 'grid', styles: { fontSize: 8 } });
+    // Section 09 - SEPARATED
+    curY = addH("Section 09", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['A. No. of accidents (3yr)', d.sec09?.accidents_within_3_years || "-"], ['B. No. of blackspots (3yr)', d.sec09?.blackspots_within_3_years || "-"], ['C. Adherence to Safety during construction', d.sec09?.safety_adherence || "-"]], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 10 - SEPARATED
-    curY = addH("Section 10", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['1. No. of NCR raised', d.sec10?.ncr_raised || "0"], ['2. No. of NCR closed', d.sec10?.ncr_closed || "0"]], theme: 'grid', styles: { fontSize: 8 } });
+    // Section 10 - SEPARATED
+    curY = addH("Section 10", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['1. No. of NCR raised', d.sec10?.ncr_raised || "0"], ['2. No. of NCR closed', d.sec10?.ncr_closed || "0"]], theme: 'grid', styles: { fontSize: 8 } });
 
-    // Section 11
-    curY = addH("Section 11", doc.lastAutoTable.finalY + 10);
-    const fb = [];
-    Object.entries(d.sec11?.nhai || {}).forEach(([k, v]) => fb.push(['A. NHAI', k.replace(/_/g, ' '), getFeedbackLabel(v)]));
-    Object.entries(d.sec11?.contractor || {}).forEach(([k, v]) => fb.push(['B. Contractor', k.replace(/_/g, ' '), getFeedbackLabel(v)]));
-    autoTable(doc, { startY: curY, head: [['Source', 'Performance Criteria', 'Rating']], body: fb, theme: 'grid', styles: { fontSize: 7 } });
+    // Section 11
+    curY = addH("Section 11", doc.lastAutoTable.finalY + 10);
+    const fb = [];
+    Object.entries(d.sec11?.nhai || {}).forEach(([k, v]) => fb.push(['A. NHAI', k.replace(/_/g, ' '), getFeedbackLabel(v)]));
+    Object.entries(d.sec11?.contractor || {}).forEach(([k, v]) => fb.push(['B. Contractor', k.replace(/_/g, ' '), getFeedbackLabel(v)]));
+    autoTable(doc, { startY: curY, head: [['Source', 'Performance Criteria', 'Rating']], body: fb, theme: 'grid', styles: { fontSize: 7 } });
 
-    // Section 12
-    curY = addH("Section 12", doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: curY, body: [['1. No. of debarments (3 Financial yrs)', d.sec12?.debar || 0], ['2. No. of Financial Penalties (3 Financial yrs)', d.sec12?.penal || 0], ['3. No. of Key Personnel suspended (3 Financial yrs)', d.sec12?.susp || 0]], theme: 'grid', styles: { fontSize: 8, fontStyle: 'bold' } });
+    // Section 12
+    curY = addH("Section 12", doc.lastAutoTable.finalY + 10);
+    autoTable(doc, { startY: curY, body: [['1. No. of debarments (3 Financial yrs)', d.sec12?.debar || 0], ['2. No. of Financial Penalties (3 Financial yrs)', d.sec12?.penal || 0], ['3. No. of Key Personnel suspended (3 Financial yrs)', d.sec12?.susp || 0]], theme: 'grid', styles: { fontSize: 8, fontStyle: 'bold' } });
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=Report_${d.id}.pdf`);
-    res.send(Buffer.from(doc.output("arraybuffer")));
-  } catch (err) { console.error(err); res.status(500).send("PDF failed"); }
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=Report_${d.id}.pdf`);
+    res.send(Buffer.from(doc.output("arraybuffer")));
+  } catch (err) { console.error(err); res.status(500).send("PDF failed"); }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server listening on http://localhost:${PORT}`));
+// Refinement: Start the listener if running locally, and export for Vercel
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => console.log(`🚀 Server listening on http://localhost:${PORT}`));
+}
+
+module.exports = app; modify it and everything else should remain intact strictly no other changes in it
