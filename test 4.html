@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Admin Console | Enterprise Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
+    .mandatory { color: #ef4444; margin-left: 2px; font-weight: bold; }
+    .full-page-container { width: 100%; padding-left: 3rem; padding-right: 3rem; }
+    .input-field { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; transition: all 0.2s ease; outline: none; background: white; font-size: 0.95rem; color: #1e293b; }
+    .input-field:focus { border-color: #2563eb; ring: 3px; ring-color: rgba(37, 99, 235, 0.1); }
+    .input-field:disabled { background-color: #f1f5f9; cursor: not-allowed; border-color: #e2e8f0; color: #94a3b8; }
+    .input-error { border-color: #ef4444 !important; background-color: #fffafb !important; }
+    .remarks-area { width: 100%; min-height: 100px; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #ffffff; resize: vertical; font-size: 0.9rem; outline: none; }
+    .remarks-area:focus { border-color: #2563eb; }
+    .error-message { color: #ef4444; font-size: 0.75rem; font-weight: 600; margin-top: 0.3rem; display: none; }
+    .form-card { background: white; border-radius: 20px; border: 1px solid #e2e8f0; padding: 3rem; margin-bottom: 3rem; }
+    .section-header { border-bottom: 1px solid #f1f5f9; margin-bottom: 2rem; padding-bottom: 1.5rem; }
+    .locked-overlay { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; align-items: center; justify-content: center; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 0.6rem; }
+    .table-container { width: 100%; border: 1px solid #e2e8f0; border-radius: 15px; overflow-x: auto; background: white; }
+    .kp-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .kp-table th { background-color: #f8fafc; color: #64748b; font-weight: 700; font-size: 0.65rem; text-transform: uppercase; padding: 1rem; border-bottom: 2px solid #e2e8f0; text-align: left; }
+    .kp-table td { padding: 0.75rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    .sub-row { background-color: #fcfdfe; }
+    .sub-row td:first-child { padding-left: 2rem; color: #2563eb; font-style: italic; font-weight: 500; font-size: 0.85rem; }
+    .btn-add { display: flex; align-items: center; gap: 0.5rem; color: #2563eb; font-weight: 700; font-size: 0.875rem; margin-top: 1rem; transition: all 0.2s; cursor: pointer; }
+    .btn-add:hover { color: #1d4ed8; transform: translateX(5px); }
+  </style>
+</head>
+
+<body class="antialiased">
+
+  <div id="authOverlay" class="locked-overlay">
+    <div class="bg-white p-12 rounded-[2rem] shadow-2xl max-w-md w-full mx-4 text-center">
+      <div id="roLoginView">
+        <h2 class="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight">NHAI AE/IE Rating</h2>
+        <h4>Provide your Unique RO Code</h4>
+        <input type="password" id="uniqueCode" placeholder="Enter RO Code" class="input-field text-center text-xl mb-4 h-14 tracking-widest font-mono">
+        <button onclick="validateCode()" class="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition shadow-xl">Verify RO</button>
+        <p id="codeError" class="mt-4 text-red-500 text-sm font-bold hidden">Invalid RO Access Token</p>
+        <p class="mt-8 text-xs text-slate-400 font-bold uppercase cursor-pointer hover:text-blue-600" onclick="toggleAdminLogin(true)">Switch to Admin Login</p>
+      </div>
+
+      <div id="adminLoginView" class="hidden">
+        <h2 class="text-2xl font-black text-blue-600 mb-6 uppercase tracking-tight">Admin Portal</h2>
+        <input type="text" id="adminUser" placeholder="Admin Username" class="input-field mb-4 h-14">
+        <input type="password" id="adminPass" placeholder="Admin Password" class="input-field mb-4 h-14">
+        <button onclick="loginAdmin()" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-800 transition shadow-xl">Login to Dashboard</button>
+        <p class="mt-8 text-xs text-slate-400 font-bold uppercase cursor-pointer hover:text-slate-900" onclick="toggleAdminLogin(false)">Back to RO Login</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminContent" class="hidden bg-slate-50 min-h-screen">
+    <header class="bg-white border-b sticky top-0 z-40">
+        <div class="full-page-container py-6 flex justify-between items-center">
+            <h1 class="font-extrabold text-slate-900 text-xl tracking-tight uppercase">Responses Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <button onclick="exportConsolidated()" class="bg-blue-600 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg">Download Consolidated Excel</button>
+                <button onclick="location.reload()" class="bg-slate-200 text-slate-700 px-6 py-2 rounded-full text-xs font-bold">Logout</button>
+            </div>
+        </div>
+    </header>
+    <main class="full-page-container py-12">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <table class="kp-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Regional Office</th>
+                        <th>PIU</th>
+                        <th>Project Name</th>
+                        <th>Submission Date</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTableBody"></tbody>
+            </table>
+        </div>
+    </main>
+  </div>
+
+  <div id="selectionOverlay" class="locked-overlay hidden">
+    <div class="bg-white p-12 rounded-[2rem] shadow-2xl max-w-lg w-full mx-4">
+      <h2 class="text-xl font-black text-slate-900 mb-2 uppercase text-center">Project Selection</h2>
+      <p id="roDisplayName" class="text-blue-600 font-bold text-center mb-8"></p>
+      <div class="space-y-6">
+        <div>
+          <label>Select PIU</label>
+          <select id="piuSelect" onchange="populateProjects()" class="input-field font-bold">
+            <option value="">-- Select PIU --</option>
+          </select>
+        </div>
+        <div id="projectContainer" class="hidden">
+          <label>Select Project</label>
+          <select id="projectSelect" class="input-field font-bold">
+            <option value="">-- Select Project --</option>
+          </select>
+        </div>
+        <button onclick="proceedToForm()" id="proceedBtn" class="hidden w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-xl">Open Form</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainContent" class="hidden opacity-0 transition-opacity duration-1000">
+    <header class="bg-white/90 backdrop-blur-md border-b sticky top-0 z-40">
+      <div class="full-page-container py-5 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+          <div class="h-6 w-1.5 bg-blue-600 rounded-full"></div>
+          <div>
+            <h1 class="font-extrabold text-slate-900 text-xl tracking-tight uppercase leading-none">AE/IE Form</h1>
+            <p id="breadcrumb" class="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-wider"></p>
+          </div>
+        </div>
+        <button onclick="submitFinalReport()" class="bg-blue-600 text-white px-8 py-2.5 rounded-full text-sm font-bold shadow-lg">Submit Final Report</button>
+      </div>
+    </header>
+
+    <main class="full-page-container py-12">
+      <form id="masterForm" novalidate class="space-y-12">
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 00</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Data Required for Normalization</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 mb-8">
+            <div><label>Awarded Cost (excluding GST) in case of EPC project (INR in Cr.)<span class="mandatory">*</span></label><input type="number" id="epc_cost" class="input-field norm-excl"></div>
+            <div><label>Awarded BPC in case of HAM Project (INR in Cr.)<span class="mandatory">*</span></label><input type="number" id="ham_cost" class="input-field norm-excl"></div>
+            <div><label>Project Length (Kms)<span class="mandatory">*</span></label><input type="number" id="proj_length" class="input-field"></div>
+            <div><label>Greenfield Length of Project (Kms)<span class="mandatory">*</span></label><input type="number" id="green_length" class="input-field"></div>
+            <div><label>Brownfield Length of Project (Kms)<span class="mandatory">*</span></label><input type="number" id="brown_length" class="input-field"></div>
+            <div>
+              <label>Whether project has tunnel more than 1 Km/extra dozed bridge/ cable stayed bridge/ suspension bridge ? <span class="mandatory">*</span></label>
+              <div class="flex space-x-4 mt-2">
+                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 flex-1 justify-center"><input type="radio" name="hasComplexStructure" value="yes" class="w-4 h-4 text-blue-600"><span class="ml-2 font-bold text-slate-700 text-sm">Yes</span></label>
+                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 flex-1 justify-center"><input type="radio" name="hasComplexStructure" value="no" class="w-4 h-4 text-blue-600"><span class="ml-2 font-bold text-slate-700 text-sm">No</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 01</span>
+            <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Deployment of Key-Personnel</h2>
+          </div>
+          <div class="space-y-10">
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-4">Project type <span class="mandatory">*</span></label>
+              <div class="flex space-x-6">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition min-w-[280px]"><input type="radio" name="projectType" value="highway" onclick="initProject('highway')" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Normal Highway</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition min-w-[280px]"><input type="radio" name="projectType" value="bridge" onclick="initProject('bridge')" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Standalone Bridge</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition min-w-[280px]"><input type="radio" name="projectType" value="tunnel" onclick="initProject('tunnel')" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Standalone Tunnel</span></label>
+              </div>
+            </div>
+            <div id="tableWrapperSection1" class="hidden">
+              <div class="table-container">
+                <table class="kp-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 180px;">Designation</th>
+                      <th style="width: 80px;">No. of KPs</th>
+                      <th style="min-width: 140px;">Date of Deployment as per Contract</th>
+                      <th style="min-width: 140px;">End Date of Deployment as per Contract/EOT</th>
+                      <th style="min-width: 140px;">Actual Date of Deployment</th>
+                      <th style="min-width: 180px;">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deploymentTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="pt-10 border-t border-slate-100"><label class="text-xs font-bold text-slate-400 uppercase mb-3 block">Section 1 Remarks (Optional)</label><textarea id="sec01_remarks" class="remarks-area w-full"></textarea></div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 02</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Replacement of Key-Personnel</h2>
+          </div>
+          <div class="space-y-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div><label>Sign date of Agreement of AE/IE<span class="mandatory">*</span></label><input type="date" id="sec02_sign_date" class="input-field"></div>
+              <div><label>End date of Agreement (Original Contract)<span class="mandatory">*</span></label><input type="date" id="sec02_end_date" class="input-field"></div>
+            </div>
+            <div id="tableWrapperSection2" class="hidden">
+              <div class="table-container">
+                <table class="kp-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 180px;">Designation</th>
+                      <th style="width: 80px;">No. of Replacements</th>
+                      <th style="min-width: 140px;">Submission of CV</th>
+                      <th style="min-width: 140px;">Mobilization Date</th>
+                      <th style="min-width: 140px;">Demobilization Date</th>
+                      <th style="min-width: 180px;">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody id="replacementTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 03</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Status of Design and Drawings</h2>
+          </div>
+          <div class="table-container">
+            <table class="kp-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 250px;">Name of Design / Drawing</th>
+                  <th style="min-width: 140px;">Date of Submission</th>
+                  <th style="min-width: 140px;">Date of Return (Comments)</th>
+                  <th style="min-width: 140px;">Date of Approval</th>
+                  <th style="min-width: 180px;">Remarks</th>
+                  <th style="width: 50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="drawingTableBody"></tbody>
+            </table>
+          </div>
+          <div onclick="addDrawingRow()" class="btn-add">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-width="3" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Add New Drawing Item</span>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 04</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Intervention on Critical issues</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 mb-8">
+            <div><label>Scheduled Project Completion date as per CA<span class="mandatory">*</span></label><input type="date" id="sec04_scheduled" class="input-field"></div>
+            <div><label>Physical Progress % of the project till date<span class="mandatory">*</span></label><input type="number" id="sec04_progress" class="input-field"></div>
+            <div><label>Project Completion Date/Likely Completion Date<span class="mandatory">*</span></label><input type="date" id="sec04_likely" class="input-field"></div>
+            <div><label>No. of DRB/AT Awards in favour of Authority<span class="mandatory">*</span></label><input type="number" id="sec04_drb_auth" class="input-field"></div>
+            <div><label>Number of DRB/AT Awards in favour of Concessionaire<span class="mandatory">*</span></label><input type="number" id="sec04_drb_conc" class="input-field"></div>
+            <div><label>Number of Neutral DRB/AT Awards <span class="mandatory">*</span></label><input type="number" id="sec04_drb_neut" class="input-field"></div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 05</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Timely Resolution of EOT / COS</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 mb-8">
+            <div><label>No of COS<span class="mandatory">*</span></label><input type="number" id="sec05_cos_count" class="input-field norm-excl"></div>
+          </div>
+          <div class="table-container">
+            <table class="kp-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 250px;">COS for Civil Work / Item Name</th>
+                  <th style="min-width: 140px;">Date of Submission by Contractor</th>
+                  <th style="min-width: 140px;">Date of Return by AE/IE</th>
+                  <th style="min-width: 140px;">Date of Approval by AE/IE</th>
+                  <th style="min-width: 180px;">Remarks</th>
+                  <th style="width: 50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="COSTableBody"></tbody>
+            </table>
+          </div>
+          <div onclick="addCOSRow()" class="btn-add">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-width="3" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Add New COS Item</span>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 06</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Timely Resolution of EOT</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 mb-8">
+            <div><label>No of EOT<span class="mandatory">*</span></label><input type="number" id="sec06_eot_count" class="input-field norm-excl"></div>
+          </div>
+          <div class="table-container">
+            <table class="kp-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 250px;">EOT for Civil Work / Item Name</th>
+                  <th style="min-width: 140px;">Date of Submission by Contractor</th>
+                  <th style="min-width: 140px;">Date of Return by AE/IE</th>
+                  <th style="min-width: 140px;">Date of Approval by AE/IE</th>
+                  <th style="min-width: 180px;">Remarks</th>
+                  <th style="width: 50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="EOTTableBody"></tbody>
+            </table>
+          </div>
+          <div onclick="addEOTRow()" class="btn-add">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-width="3" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Add New EOT Item</span>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 07</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Contract Administration</h2>
+          </div>
+          <div class="space-y-10">
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">A. Average time in Processing of Below mentioned proposals: <span class="mandatory">*</span></label>
+              <p class="text-xs text-slate-500 mb-4 italic">(Timely processing of PCOD/COD/CC proposals<br>Issuance of letters/correspondences as per provisions of CA<br>Initiating proposal of delinking/de-scoping as per CA <br>*To be judged by PD based on record available in MPRs/Datalake/ Office)</p>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="avgProcTime" value="7" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Upto 7 Days</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="avgProcTime" value="15" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">7-15 days</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="avgProcTime" value="30" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">16-30 days</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="avgProcTime" value="31" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Above 30 days</span></label>
+              </div>
+            </div>
+            <div class="table-container">
+              <label class="font-bold text-slate-900 text-base mb-4 px-4 py-2 block border-b">B. Average time in processing of Bills <span class="mandatory">*</span></label>
+              <table class="kp-table">
+                <thead>
+                  <tr>
+                    <th style="min-width: 250px;">SPC/Milestone Bill No.</th>
+                    <th style="min-width: 140px;">Date of Last Submission</th>
+                    <th style="min-width: 140px;">Date of Approval by AE/IE</th>
+                    <th style="min-width: 180px;">Remarks</th>
+                    <th style="width: 50px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="SPCTableBody"></tbody>
+              </table>
+            </div>
+            <div onclick="addSPCRow()" class="btn-add">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="3" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Add New SPC Item</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 08</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">PCI Rating of the Project at time of Provisional Completion / Completion Certificate</h2>
+          </div>
+          <div class="space-y-10">
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">A. PCI at the time of PCC/COD/Completion<span class="mandatory">*</span></label>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_pcc" value="100-90" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">100-90</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_pcc" value="80-90" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">80-90</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_pcc" value="60-80" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">60-80</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_pcc" value="60-40" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">60-40</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_pcc" value="Less than 40" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Less than 40</span></label>
+              </div>
+            </div>
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">B. PCI two years post COD/Completion <span class="mandatory">*</span></label>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_post" value="100-90" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">100-90</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_post" value="80-90" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">80-90</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_post" value="60-80" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">60-80</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_post" value="60-40" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">60-40</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="pci_post" value="Less than 40" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Less than 40</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 09</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Accident Blackspots and Safety during Construction</h2>
+          </div>
+          <div class="space-y-10">
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">A. No. of accidents occurred on the project stretch within 3 years from Completion (COD)<span class="mandatory">*</span></label>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="accidents" value="Nil" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Nil</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="accidents" value="1-5" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">1-5</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="accidents" value="6-10" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">6-10</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="accidents" value="11 or more" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">11 or more</span></label>
+              </div>
+            </div>
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">B. No. of blackspots occurred on the project stretch within 3 years from Completion (COD) (To be taken only for MoRTH identified)<span class="mandatory">*</span></label>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="blackspots" value="Nil" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Nil</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="blackspots" value="1-2" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">1-2</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="blackspots" value="3 or more" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">3 or more</span></label>
+              </div>
+            </div>
+            <div>
+              <label class="font-bold text-slate-900 text-base mb-2">C. Adherence to Safety during construction by Contractor/Concessionaire<span class="mandatory">*</span></label>
+              <div class="flex space-x-4">
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="safety" value="Complete" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Complete Adherence on Site</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="safety" value="Limited" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">Limited Adherence on Site</span></label>
+                <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer hover:bg-slate-50 transition flex-1"><input type="radio" name="safety" value="None" class="w-5 h-5 text-blue-600"><span class="ml-4 font-bold text-slate-700">No Adherence on Site</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 10</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">NCR Issued</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-x-10 gap-y-8 mb-8">
+            <div><label>No. of NCR raised<span class="mandatory">*</span></label><input type="number" id="sec10_ncr_raised" class="input-field"></div>
+            <div><label>No. of NCR closed<span class="mandatory">*</span></label><input type="number" id="sec10_ncr_closed" class="input-field"></div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 11</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Intervention on Critical issues</h2>
+          </div>
+
+          <div class="mb-12">
+            <h3 class="text-lg font-extrabold text-slate-700 uppercase tracking-tight mb-6 flex items-center">
+              <span class="w-8 h-8 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center mr-3 text-sm">A</span>
+              Feedback of Implementing agency (NHAI)
+            </h3>
+            <div class="table-container">
+              <table class="kp-table">
+                <thead>
+                  <tr>
+                    <th style="min-width: 300px;">Performance Criteria</th>
+                    <th class="text-center" style="width: 120px;">Non Effective</th>
+                    <th class="text-center" style="width: 120px;">Least Effective</th>
+                    <th class="text-center" style="width: 120px;">Slightly Effective</th>
+                    <th class="text-center" style="width: 120px;">Very Effective</th>
+                    <th class="text-center" style="width: 120px;">Extremely Effective</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="font-semibold text-slate-700">I. Effectiveness of Deployed Manpower <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_1" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_1" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_1" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_1" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_1" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">II. Knowledge about site conditions <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_2" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_2" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_2" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_2" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_2" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">III. Knowledge about technical schedules / features / progress <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_3" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_3" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_3" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_3" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_3" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">IV. Efforts to assess and improve project Quality <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_4" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_4" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_4" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_4" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_4" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">V. Efforts towards closing project bottlenecks <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_5" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_5" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_5" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_5" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_nhai_5" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-lg font-extrabold text-slate-700 uppercase tracking-tight mb-6 flex items-center">
+              <span class="w-8 h-8 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center mr-3 text-sm">B</span>
+              Feedback of concerned Contractor/Concessionaire
+            </h3>
+            <div class="table-container">
+              <table class="kp-table">
+                <thead>
+                  <tr>
+                    <th style="min-width: 300px;">Performance Criteria</th>
+                    <th class="text-center" style="width: 120px;">Non Effective</th>
+                    <th class="text-center" style="width: 120px;">Least Effective</th>
+                    <th class="text-center" style="width: 120px;">Slightly Effective</th>
+                    <th class="text-center" style="width: 120px;">Very Effective</th>
+                    <th class="text-center" style="width: 120px;">Extremely Effective</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="font-semibold text-slate-700">I. Effectiveness of Deployed Manpower <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_1" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_1" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_1" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_1" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_1" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">II. Efforts towards closing project bottlenecks <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_2" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_2" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_2" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_2" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_2" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">III. Knowledge about site conditions <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_3" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_3" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_3" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_3" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_3" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">IV. Knowledge about technical schedules / features / progress <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_4" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_4" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_4" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_4" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_4" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-semibold text-slate-700">V. Efforts to assess and improve project Quality <span class="mandatory">*</span></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_5" value="1" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_5" value="2" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_5" value="3" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_5" value="4" class="w-5 h-5 text-blue-600"></td>
+                    <td class="text-center"><input type="radio" name="fb_cont_5" value="5" class="w-5 h-5 text-blue-600"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <div class="section-header">
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest">Section 12</span>
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Penal Action on Consultant</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 mb-8">
+            <div><label>No. of debarments of firm in last 3 Financial years <span class="mandatory">*</span></label><input type="number" id="sec12_debar" class="input-field"></div>
+            <div><label>No. of times Financial Penalty imposed on Firm in last 3 Financial years (by NHAI for any construction supervision project)<span class="mandatory">*</span></label><input type="number" id="sec12_penal" class="input-field"></div>
+            <div><label>No. of times Key Personnel suspended in last 3 Financial years ( (by NHAI/ MoRTH/ NHIDCL for any construction supervision project)<span class="mandatory">*</span></label><input type="number" id="sec12_susp" class="input-field"></div>
+          </div>
+        </section>
+
+      </form>
+    </main>
+  </div>
+
+  <script>
+    /* ----------------- ADMIN DASHBOARD LOGIC ----------------- */
+    function toggleAdminLogin(showAdmin) {
+      document.getElementById('roLoginView').classList.toggle('hidden', showAdmin);
+      document.getElementById('adminLoginView').classList.toggle('hidden', !showAdmin);
+    }
+
+    async function loginAdmin() {
+      const user = document.getElementById('adminUser').value;
+      const pass = document.getElementById('adminPass').value;
+
+      try {
+        const res = await fetch("http://localhost:5001/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: user, password: pass })
+        });
+
+        if (res.ok) {
+          document.getElementById('authOverlay').classList.add('hidden');
+          document.getElementById('adminContent').classList.remove('hidden');
+          loadResponses();
+        } else {
+          alert("Invalid Admin Credentials");
+        }
+      } catch (err) {
+        alert("Connection to admin server failed.");
+      }
+    }
+
+    async function loadResponses() {
+      const tbody = document.getElementById('adminTableBody');
+      try {
+        const res = await fetch("http://localhost:5001/api/admin/submissions");
+        const data = await res.json();
+        tbody.innerHTML = '';
+
+        data.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+                    <td class="font-mono text-xs">#${item.id}</td>
+                    <td class="font-bold">${item.meta_ro_name}</td>
+                    <td>${item.meta_piu_name}</td>
+                    <td class="text-blue-600 font-semibold">${item.meta_project_name}</td>
+                    <td>${new Date(item.submission_timestamp).toLocaleDateString()}</td>
+                    <td class="text-right space-x-2">
+                        <a href="http://localhost:5001/api/export/${item.id}" target="_blank" 
+                           class="inline-block bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow hover:bg-emerald-600">Excel</a>
+                        <a href="http://localhost:5001/api/export-pdf/${item.id}" target="_blank" 
+                           class="inline-block bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow hover:bg-red-600">PDF</a>
+                    </td>
+                `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-red-500 font-bold">Failed to load responses</td></tr>';
+      }
+    }
+
+    function exportConsolidated() {
+      window.open("http://localhost:5001/api/admin/export-consolidated", "_blank");
+    }
+
+    /* ----------------- FORM LOGIC ----------------- */
+    async function submitFinalReport() {
+
+      /* ----------------- HELPERS ----------------- */
+      const val = (id) => document.getElementById(id)?.value || null;
+      const num = (id) => {
+        const v = document.getElementById(id)?.value;
+        return v === "" || v === null ? null : Number(v);
+      };
+      const radio = (name) =>
+        document.querySelector(`input[name="${name}"]:checked`)?.value || null;
+
+      const collectTableRows = (tbodyId, mapper) =>
+        Array.from(document.querySelectorAll(`#${tbodyId} tr`))
+          .filter(tr => !tr.classList.contains('sub-row-disabled'))
+          .map(mapper)
+          .filter(Boolean);
+
+      /* ----------------- METADATA ----------------- */
+      const payload = {
+        metadata: {
+          ro_name: currentRO.name,
+          ro_code: val("uniqueCode"),
+          piu: val("piuSelect"),
+          project: val("projectSelect"),
+          submission_timestamp: new Date().toISOString()
+        },
+
+        /* ----------------- SECTION 00 ----------------- */
+        sec00: {
+          epc_cost_cr: num("epc_cost"),
+          ham_bpc_cr: num("ham_cost"),
+          project_length_km: num("proj_length"),
+          greenfield_length_km: num("green_length"),
+          brownfield_length_km: num("brown_length"),
+          has_complex_structure: radio("hasComplexStructure")
+        },
+
+        /* ----------------- SECTION 01 ----------------- */
+        sec01: {
+          project_type: radio("projectType"),
+          remarks: val("sec01_remarks"),
+          deployments: collectTableRows("deploymentTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            const isSubRow = tr.classList.contains('sub-row');
+            if (isSubRow) {
+              return {
+                designation: tr.cells[0].innerText.trim(),
+                qty_val: "-",
+                deployment_as_per_contract: inputs[0].value || null,
+                end_date_as_per_contract_or_eot: inputs[1].value || null,
+                actual_deployment_date: inputs[2].value || null,
+                remarks: inputs[3]?.value || null
+              };
+            } else {
+              return {
+                designation: tr.cells[0].innerText.trim(),
+                qty_val: inputs[0].value || null,
+                deployment_as_per_contract: inputs[1].value || null,
+                end_date_as_per_contract_or_eot: inputs[2].value || null,
+                actual_deployment_date: inputs[3].value || null,
+                remarks: inputs[4]?.value || null
+              };
+            }
+          })
+        },
+
+        /* ----------------- SECTION 02 ----------------- */
+        sec02: {
+          agreement_sign_date: val("sec02_sign_date"),
+          agreement_end_date: val("sec02_end_date"),
+          replacements: collectTableRows("replacementTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            const isSubRow = tr.classList.contains('sub-row');
+            if (isSubRow) {
+              return {
+                designation: tr.cells[0].innerText.trim(),
+                replacement_qty: "-",
+                cv_submission_date: inputs[0].value || null,
+                mobilization_date: inputs[1].value || null,
+                demobilization_date: inputs[2].value || null,
+                remarks: inputs[3]?.value || null
+              };
+            } else {
+              return {
+                designation: tr.cells[0].innerText.trim(),
+                replacement_qty: inputs[0].value || null,
+                cv_submission_date: inputs[1].value || null,
+                mobilization_date: inputs[2].value || null,
+                demobilization_date: inputs[3].value || null,
+                remarks: inputs[4]?.value || null
+              };
+            }
+          })
+        },
+
+        /* ----------------- SECTION 03 ----------------- */
+        sec03: {
+          drawings: collectTableRows("drawingTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            return {
+              name: inputs[0].value || null,
+              submission_date: inputs[1].value || null,
+              return_date: inputs[2].value || null,
+              approval_date: inputs[3].value || null,
+              remarks: inputs[4]?.value || null
+            };
+          })
+        },
+
+        /* ----------------- SECTION 04 ----------------- */
+        sec04: {
+          scheduled_completion_date: val("sec04_scheduled"),
+          physical_progress_percent: num("sec04_progress"),
+          likely_completion_date: val("sec04_likely"),
+          drb_awards: {
+            authority: num("sec04_drb_auth"),
+            concessionaire: num("sec04_drb_conc"),
+            neutral: num("sec04_drb_neut")
+          }
+        },
+
+        /* ----------------- SECTION 05 ----------------- */
+        sec05: {
+          cos_count: num("sec05_cos_count"),
+          cos_items: collectTableRows("COSTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            return {
+              item_name: inputs[0].value || null,
+              submission_date: inputs[1].value || null,
+              return_date: inputs[2].value || null,
+              approval_date: inputs[3].value || null,
+              remarks: inputs[4]?.value || null
+            };
+          })
+        },
+
+        /* ----------------- SECTION 06 ----------------- */
+        sec06: {
+          eot_count: num("sec06_eot_count"),
+          eot_items: collectTableRows("EOTTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            return {
+              item_name: inputs[0].value || null,
+              submission_date: inputs[1].value || null,
+              return_date: inputs[2].value || null,
+              approval_date: inputs[3].value || null,
+              remarks: inputs[4]?.value || null
+            };
+          })
+        },
+
+        /* ----------------- SECTION 07 ----------------- */
+        sec07: {
+          avg_processing_time_category: radio("avgProcTime"),
+          bills: collectTableRows("SPCTableBody", tr => {
+            const inputs = tr.querySelectorAll("input");
+            return {
+              bill_number: inputs[0].value || null,
+              last_submission_date: inputs[1].value || null,
+              approval_date: inputs[2].value || null,
+              remarks: inputs[3]?.value || null
+            };
+          })
+        },
+
+        /* ----------------- SECTION 08 ----------------- */
+        sec08: {
+          pci_at_completion: radio("pci_pcc"),
+          pci_two_years_post: radio("pci_post")
+        },
+
+        /* ----------------- SECTION 09 ----------------- */
+        sec09: {
+          accidents_within_3_years: radio("accidents"),
+          blackspots_within_3_years: radio("blackspots"),
+          safety_adherence: radio("safety")
+        },
+
+        /* ----------------- SECTION 10 ----------------- */
+        sec10: {
+          ncr_raised: num("sec10_ncr_raised"),
+          ncr_closed: num("sec10_ncr_closed")
+        },
+
+        /* ----------------- SECTION 11 ----------------- */
+        sec11: {
+          nhai: {
+            effectiveness_of_deployed_manpower: radio("fb_nhai_1"),
+            knowledge_of_site_conditions: radio("fb_nhai_2"),
+            knowledge_of_technical_features: radio("fb_nhai_3"),
+            quality_improvement_efforts: radio("fb_nhai_4"),
+            bottleneck_resolution_efforts: radio("fb_nhai_5")
+          },
+          contractor: {
+            effectiveness_of_deployed_manpower: radio("fb_cont_1"),
+            bottleneck_resolution_efforts: radio("fb_cont_2"),
+            knowledge_of_site_conditions: radio("fb_cont_3"),
+            knowledge_of_technical_features: radio("fb_cont_4"),
+            quality_improvement_efforts: radio("fb_cont_5")
+          }
+        },
+
+        /* ----------------- SECTION 12 ----------------- */
+        sec12: {
+          debar: num("sec12_debar"),
+          penal: num("sec12_penal"),
+          susp: num("sec12_susp")
+        }
+      };
+
+      console.log("📦 FINAL NORMALIZED PAYLOAD", payload);
+
+      try {
+        const res = await fetch("http://localhost:5001/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        alert("Saved successfully. ID: " + data.id);
+      } catch (err) {
+        alert("Submission failed. Backend not reachable.");
+      }
+    }
+
+    const RO_DATA = { "123": { name: "Regional Office Delhi", pius: { "PIU Delhi North": ["Project Highway-01"] } } };
+    const ROLES_MAP = {
+      'highway': ["Team Leader", "Resident Engineer cum Highway Engineer", "Bridge Engineer", "Senior Pavement Specialist", "Senior Quality & Material Expert"],
+      'bridge': ["Team Leader", "Resident Engineer cum P Engineer", "Bridge Engineer"],
+      'tunnel': ["Team Leader", "Resident Engineer cum ES", "Sr. Geotech Expert", "Tunnel Design Engineer", "Tunnel Safety Expert"]
+    };
+
+    let currentRO = null;
+
+    function validateCode() {
+      const code = document.getElementById('uniqueCode').value.toUpperCase();
+      if (RO_DATA[code]) {
+        currentRO = RO_DATA[code];
+        document.getElementById('authOverlay').style.display = 'none';
+        setupSelectionScreen();
+        addDrawingRow(); addCOSRow(); addEOTRow(); addSPCRow();
+      } else { document.getElementById('codeError').classList.remove('hidden'); }
+    }
+
+    function setupSelectionScreen() {
+      document.getElementById('selectionOverlay').classList.remove('hidden');
+      document.getElementById('roDisplayName').textContent = currentRO.name;
+      const piuSelect = document.getElementById('piuSelect');
+      Object.keys(currentRO.pius).forEach(p => piuSelect.add(new Option(p, p)));
+    }
+
+    function populateProjects() {
+      const piu = document.getElementById('piuSelect').value;
+      const sel = document.getElementById('projectSelect');
+      document.getElementById('projectContainer').classList.remove('hidden');
+      sel.innerHTML = '<option value="">-- Select Project --</option>';
+      currentRO.pius[piu].forEach(proj => sel.add(new Option(proj, proj)));
+      sel.onchange = () => document.getElementById('proceedBtn').classList.remove('hidden');
+    }
+
+    function proceedToForm() {
+      document.getElementById('selectionOverlay').classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('hidden');
+      document.getElementById('breadcrumb').textContent = `${currentRO.name} > ${document.getElementById('piuSelect').value} > ${document.getElementById('projectSelect').value}`;
+      setTimeout(() => document.getElementById('mainContent').classList.add('opacity-100'), 100);
+    }
+
+    function initProject(type) {
+      const tbody1 = document.getElementById('deploymentTableBody');
+      const tbody2 = document.getElementById('replacementTableBody');
+      tbody1.innerHTML = ''; tbody2.innerHTML = '';
+      document.getElementById('tableWrapperSection1').classList.remove('hidden');
+      document.getElementById('tableWrapperSection2').classList.remove('hidden');
+      ROLES_MAP[type].forEach(role => { createStandardRow(role, 1, tbody1, 1); createStandardRow(role, 0, tbody2, 2); });
+    }
+
+    function createStandardRow(name, defaultQty, tbody, sectionNum) {
+      const rowId = name.replace(/[^a-zA-Z0-9]/g, '-');
+      const tr = document.createElement('tr');
+      tr.id = `parent${sectionNum}-${rowId}`;
+      const isDisabled = (sectionNum === 2 && defaultQty === 0) ? 'disabled' : '';
+      tr.innerHTML = `
+        <td class="font-bold text-slate-800">${name}</td>
+        <td><input type="number" min="0" max="10" value="${defaultQty}" onchange="handleQtyChange('${name}', this.value, ${sectionNum})" class="input-field text-center font-bold px-1"></td>
+        <td><input type="date" class="input-field" required ${isDisabled}></td>
+        <td><input type="date" class="input-field" required ${isDisabled}></td>
+        <td><input type="date" class="input-field" required ${isDisabled}></td>
+        <td><input type="text" class="input-field" placeholder="Remarks" ${isDisabled}></td>
+      `;
+      tbody.appendChild(tr);
+      tr.querySelectorAll('.input-field').forEach(attachValidation);
+    }
+
+    function addDrawingRow() {
+      const tbody = document.getElementById('drawingTableBody');
+      const rowId = 'drw-' + Date.now();
+      const tr = document.createElement('tr');
+      tr.id = `parent3-${rowId}`;
+      tr.innerHTML = `
+        <td><input type="text" placeholder="Enter Drawing name" class="input-field font-bold text-blue-600"></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        <td><button type="button" onclick="document.getElementById('parent3-${rowId}').remove()" class="text-red-400 hover:text-red-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function addCOSRow() {
+      const tbody = document.getElementById('COSTableBody');
+      const rowId = 'cos-' + Date.now();
+      const tr = document.createElement('tr');
+      tr.id = `parent5-${rowId}`;
+      tr.innerHTML = `
+        <td><input type="text" placeholder="Enter COS Detail" class="input-field font-bold text-emerald-600"></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        <td><button type="button" onclick="document.getElementById('parent5-${rowId}').remove()" class="text-red-400 hover:text-red-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function addEOTRow() {
+      const tbody = document.getElementById('EOTTableBody');
+      const rowId = 'eot-' + Date.now();
+      const tr = document.createElement('tr');
+      tr.id = `parent6-${rowId}`;
+      tr.innerHTML = `
+        <td><input type="text" placeholder="Enter EOT Detail" class="input-field font-bold text-emerald-600"></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        <td><button type="button" onclick="document.getElementById('parent6-${rowId}').remove()" class="text-red-400 hover:text-red-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function addEOTRow() {
+      const tbody = document.getElementById('EOTTableBody');
+      const rowId = 'eot-' + Date.now();
+      const tr = document.createElement('tr');
+      tr.id = `parent6-${rowId}`;
+      tr.innerHTML = `
+        <td><input type="text" placeholder="Enter EOT Detail" class="input-field font-bold text-emerald-600"></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        <td><button type="button" onclick="document.getElementById('parent6-${rowId}').remove()" class="text-red-400 hover:text-red-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function addSPCRow() {
+      const tbody = document.getElementById('SPCTableBody');
+      const rowId = 'spc-' + Date.now();
+      const tr = document.createElement('tr');
+      tr.id = `parent7-${rowId}`;
+      tr.innerHTML = `
+        <td><input type="text" placeholder="SPC Bill Number" class="input-field font-bold text-emerald-600"></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="date" class="input-field" required></td>
+        <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        <td><button type="button" onclick="document.getElementById('parent7-${rowId}').remove()" class="text-red-400 hover:text-red-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function handleQtyChange(name, qty, sectionNum) {
+      const rowId = name.replace(/[^a-zA-Z0-9]/g, '-');
+      const parentRow = document.getElementById(`parent${sectionNum}-${rowId}`);
+      document.querySelectorAll(`.sub-row${sectionNum}-${rowId}`).forEach(r => r.remove());
+      if (sectionNum === 1 || sectionNum === 2) {
+        parentRow.querySelectorAll('input:not([type="number"])').forEach(input => {
+          input.disabled = (qty == 0); if (qty == 0) input.value = '';
+        });
+      }
+      for (let i = 2; i <= qty; i++) {
+        const subTr = document.createElement('tr');
+        subTr.className = `sub-row sub-row${sectionNum}-${rowId}`;
+        subTr.innerHTML = `
+          <td class="text-blue-600 font-medium">${name} ${i}</td>
+          <td class="text-center text-slate-300">—</td>
+          <td><input type="date" class="input-field" required></td>
+          <td><input type="date" class="input-field" required></td>
+          <td><input type="date" class="input-field" required></td>
+          <td><input type="text" class="input-field" placeholder="Remarks"></td>
+        `;
+        let lastSub = Array.from(document.querySelectorAll(`.sub-row${sectionNum}-${rowId}`)).pop() || parentRow;
+        lastSub.after(subTr);
+        subTr.querySelectorAll('.input-field').forEach(attachValidation);
+      }
+    }
+
+    function attachValidation(el) {
+      const validate = () => {
+        if (el.required && !el.value && !el.disabled) el.classList.add('input-error');
+        else el.classList.remove('input-error');
+      };
+      el.addEventListener('input', validate); el.addEventListener('blur', validate);
+    }
+
+    const epc = document.getElementById('epc_cost');
+    const ham = document.getElementById('ham_cost');
+    if (epc && ham) {
+      [epc, ham].forEach(el => {
+        el.addEventListener('input', () => {
+          if (epc.value) ham.disabled = true;
+          else if (ham.value) epc.disabled = true;
+          else { epc.disabled = false; ham.disabled = false; }
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>
