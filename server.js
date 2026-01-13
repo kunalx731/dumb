@@ -456,5 +456,3 @@ app.get("/api/export-pdf/:id", async (req, res) => {
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => console.log(`🚀 Server listening on http://localhost:${PORT}`));
 }
-
-module.exports = app; modify it and everything else should remain intact strictly no other changes in it
